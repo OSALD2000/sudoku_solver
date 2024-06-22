@@ -1,5 +1,6 @@
 import java.util.Random;
 
+
 public class Main 
 {
     public static int[][] finalBoard;
@@ -81,17 +82,16 @@ public class Main
 
         for (int i = 1; i <= 9; i++)
         {
-            int[][] copy_board = board.clone();
-            if(isSave(copy_board, 9, y, x, i))
+            if(isSave(board, 9, y, x, i))
             {
-                copy_board[y][x] = i;
-                if(solve(copy_board, y, x+1))
+                board[y][x] = i;
+                if(solve(board, y, x+1))
                 {
-                    finalBoard = copy_board.clone();
+                    finalBoard = board;
                     return true;
                 }else
                 {
-                    copy_board[y][x] = 0;
+                    board[y][x] = 0;
                 };        
             }
         }
@@ -102,7 +102,20 @@ public class Main
     public static void main(String[] args) 
     {
 
-        var board = createBoard(17);
+        //var board = createBoard(17);
+        
+        var board = new int[][]
+        {
+            new int[]{6, 0, 0, 0, 0, 0, 0, 0, 0},
+            new int[]{0, 0, 0, 4, 0, 0, 0, 2, 0},
+            new int[]{0, 0, 0, 0, 0, 0, 8, 0, 0},
+            new int[]{4, 0, 0, 0, 6, 9, 0, 0, 0},
+            new int[]{0, 3, 0, 0, 0, 5, 1, 0, 0},
+            new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0},
+            new int[]{7, 0, 0, 0, 0, 0, 0, 0, 0},
+            new int[]{0, 8, 0, 1, 0, 0, 0, 0, 0},
+            new int[]{0, 0, 0, 0, 0, 0, 0, 3, 1},
+        };
 
         for (int i = 0; i < 9 ; i++)
         {
@@ -115,7 +128,11 @@ public class Main
 
         System.out.println("\n \n \n \n \n");
 
-        if(solve(board, 0, 0))
+        long start_time = System.currentTimeMillis();
+        boolean solved = solve(board, 0, 0);
+        long end_time = System.currentTimeMillis();
+
+        if(solved)
         {
             for (int i = 0; i < 9 ; i++)
             {
@@ -129,8 +146,11 @@ public class Main
         else
         {
             System.out.println("NO NO NO NO NO :(");
-        }
+        } 
 
+        System.out.println("\n");
+
+        System.out.println(" Time needed is : " + ((end_time - start_time)));
     }
     
 }
