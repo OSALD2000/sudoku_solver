@@ -16,14 +16,21 @@ const std::string CYAN = "\033[36m";
 const std::string RESET = "\033[0m";
 
 
+struct Sudoku;
+
 bool isSafe(int **, int, int, int);
 void deleteBoard(int**);
-bool solveSudoku(int **, int , int , int *);
+bool solveSudoku(int **, int , int , Sudoku*);
+
+
 
 struct Sudoku
 {
   std::vector<int**> boards;
+  std::vector<int**> solvedBoards;
+
   std::mutex mtxBoards;
+  std::mutex mtxSolvedBoards;
   std::mutex mtxCounter;
   int counter = 0;
   int idx = 0;
@@ -55,7 +62,22 @@ struct Sudoku
           deleteBoard(b);
     }
   }
+
+  void cleanUpSolved()
+  {
+    for (int** b : solvedBoards) {
+          deleteBoard(b);
+    }
+  }
+
+  void addSolvedBoard(int **board)
+  {
+    mtxSolvedBoards.lock();
+    solvedBoards.push_back(board);
+    mtxSolvedBoards.unlock();
+  }
 };
+
 
 class SudokuWorker
 {
@@ -71,13 +93,7 @@ class SudokuWorker
       int **board;
       while ((board = m_sudoku->getBoard()) != nullptr)
       {
-        int count = 0;
-        int *ptr = &count;
-        solveSudoku(board, 0, 0, ptr);
-        for (int i = 0; i < count; i++)
-        {
-          m_sudoku->incrementCounter();
-        }
+        solveSudoku(board, 0, 0, m_sudoku);
       }
     }
 
@@ -157,7 +173,7 @@ bool isSafe(int **first, int row, int col, int num)
   return true;
 }
 
-bool solveSudoku(int **first, int row, int col, int *count)
+bool solveSudoku(int **first, int row, int col, Sudoku *sudoku)
 {
   if (row == 9)
   {
@@ -166,12 +182,12 @@ bool solveSudoku(int **first, int row, int col, int *count)
 
   if (col == 9)
   {
-    return solveSudoku(first, row + 1, 0, count);
+    return solveSudoku(first, row + 1, 0, sudoku);
   }
 
   if (first[row][col] != 0)
   {
-    return solveSudoku(first, row, col + 1, count);
+    return solveSudoku(first, row, col + 1, sudoku);
   }
 
   for (int num = 1; num <= 9; num++)
@@ -180,9 +196,10 @@ bool solveSudoku(int **first, int row, int col, int *count)
     {
       first[row][col] = num;
 
-      if (solveSudoku(first, row, col + 1, count))
+      if (solveSudoku(first, row, col + 1, sudoku))
       {
-        *count += 1;
+        sudoku->addSolvedBoard(createNewBoard(first));
+        sudoku->incrementCounter();
         return true;
       }
 
@@ -216,15 +233,18 @@ int main()
 
   int **init_board = new int *[9];
 
-  init_board[0] = new int[9]{1, 0, 0, 0, 0, 0, 0, 0, 0};
-  init_board[1] = new int[9]{0, 0, 0, 0, 0, 0, 0, 0, 0};
-  init_board[2] = new int[9]{0, 0, 0, 0, 0, 0, 0, 0, 0};
-  init_board[3] = new int[9]{0, 0, 0, 0, 0, 0, 0, 0, 0};
-  init_board[4] = new int[9]{0, 0, 0, 0, 2, 0, 0, 0, 0};
-  init_board[5] = new int[9]{0, 0, 0, 0, 0, 0, 0, 0, 0};
-  init_board[6] = new int[9]{0, 0, 0, 0, 0, 0, 0, 0, 0};
-  init_board[7] = new int[9]{0, 0, 0, 0, 0, 0, 0, 0, 0};
-  init_board[8] = new int[9]{0, 0, 0, 0, 0, 0, 0, 0, 3};
+  init_board[0] = new int[9]{   2, 0, 0,    0, 0, 0,    0, 0, 0  };
+  init_board[1] = new int[9]{   1, 0, 7,    4, 0, 0,    0, 0, 3  };
+  init_board[2] = new int[9]{   3, 0, 0,    2, 0, 0,    0, 5, 0  };
+
+  init_board[3] = new int[9]{   0, 0, 5,    0, 2, 0,    0, 0, 0  };
+  init_board[4] = new int[9]{   0, 6, 0,    1, 0, 0,    4, 0, 0  };
+  init_board[5] = new int[9]{   0, 0, 0,    0, 0, 7,    0, 0, 0  };
+
+  init_board[6] = new int[9]{   0, 0, 0,    0, 0, 3,    0, 0, 8  };
+  init_board[7] = new int[9]{   8, 0, 0,    6, 0, 0,    2, 0, 0  };
+  init_board[8] = new int[9]{   0, 4, 0,    8, 0, 0,    0, 3, 1  };
+
 
 
   createPermutation(&sudoku_1.boards, init_board, 0);
@@ -234,21 +254,18 @@ int main()
   std::cout << "Number of permutations 1 : " << sudoku_1.boards.size() << std::endl;
   std::cout << "Number of permutations 2 : " << sudoku_2.boards.size() << std::endl;
 
-  int count = 0;
-  int *ptr = &count;
-
   auto start_seq = std::chrono::high_resolution_clock::now();
 
   for (int **b : sudoku_1.boards)
   {
-    solveSudoku(b, 0, 0, ptr);
+    solveSudoku(b, 0, 0, &sudoku_1);
   }
 
   auto end_seq = std::chrono::high_resolution_clock::now();
 
   std::chrono::duration<double> duration_seq = end_seq - start_seq;
   std::cout << "Sequential duration: " << duration_seq.count() << "s" << std::endl;
-  std::cout << "Number of solutions: " << count << std::endl;
+  std::cout << "Number of solutions: " << sudoku_1.counter << std::endl;
 
 
   auto start_mult = std::chrono::high_resolution_clock::now();
@@ -272,8 +289,12 @@ int main()
   std::cout << "Sequential duration: " << duration_mult.count() << "s" << std::endl;
   std::cout << "Number of solutions: " << sudoku_2.counter << std::endl;
 
+  printBoard(sudoku_1.solvedBoards[0]);
+
   sudoku_1.cleanUp();
   sudoku_2.cleanUp();
+  sudoku_1.cleanUpSolved();
+  sudoku_2.cleanUpSolved();
 
   deleteBoard(init_board);
 
